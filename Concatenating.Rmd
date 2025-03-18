@@ -1,0 +1,169 @@
+
+<center><img src="https://github.com/DACSS-PreProcessing/Week_1_main/blob/main/pics/LogoSimple.png?raw=true" width="700"></center>
+
+# Concatenating Data Frames in R
+
+Concatenating is an operation at the data frame level. It is an easy operation when all the data frames have the **same** column names, and in the same position  (vertical concatenation).
+
+For this example, there is a webpage in **fragilestatesindex.org** where we can find several links to excel files. Let me get all the links:
+
+```{r, eval=FALSE}
+library(rvest) 
+  
+# Read the HTML content of the website 
+webpage <- read_html("https://fragilestatesindex.org/excel/") 
+  
+ 
+allLinks=html_nodes(webpage,"table") %>%
+            html_nodes("a") %>% #“a” nodes contain linked text.
+                html_attr("href")%>% # the url (an html attribute)
+                    trimws()%>%unique() # cleaning and keeping non duplicated
+allLinks
+```
+
+Now, I will create a list of data frames by loading the data from those links:
+
+
+```{r, eval=FALSE}
+dfs = lapply(allLinks, rio::import,col_types = "text")
+```
+
+Can we concatenate the files now?
+
+```{r, eval=FALSE}
+do.call(rbind, dfs)
+```
+It is not possible due to the column names differences in each dataframe (DF).
+
+We can solve this. Let's build a list where each element is the column names of each DF:
+
+
+```{r, eval=FALSE}
+allNames=list()
+i=1 
+for (df in dfs){
+    allNames[[i]]=names(df)
+    i=i+1
+}
+```
+
+Let me find WHAT is common in all DFs:
+
+
+```{r, eval=FALSE}
+Reduce(intersect, allNames)
+
+```
+
+If this is the union of all the column names:
+```{r, eval=FALSE}
+Reduce(union, allNames)
+```
+
+This is what is NOT common:
+```{r, eval=FALSE}
+setdiff(Reduce(union, allNames),Reduce(intersect, allNames))
+```
+
+I will force that each DF has the same names and in the same position:
+```{r, eval=FALSE}
+allInCommon=Reduce(intersect, allNames)
+
+for (i in 1:length(dfs)){
+    dfs[[i]]=dfs[[i]][,allInCommon] #forcing!
+}
+```
+
+Now we can concatenate all of them:
+
+```{r, eval=FALSE}
+allFragility=do.call(rbind, dfs)
+```
+
+Let's check:
+```{r, eval=FALSE}
+str(allFragility)
+```
+
+The names can be cleaned and reorganized (sort):
+
+```{r, eval=FALSE}
+# what names?
+grep(':',names(allFragility),value = T)
+```
+
+```{r, eval=FALSE}
+# no spaces and to lowercase
+gsub(":\\s|\\s","_",grep(':',names(allFragility),value = T))%>%tolower()
+```
+
+```{r, eval=FALSE}
+# sorted new names
+newNames=sort(gsub(":\\s|\\s","_",grep(':',names(allFragility),value = T))%>%tolower())
+
+# then
+names(allFragility)=c(names(allFragility)[1:4],newNames)
+str(allFragility)
+```
+Let's check some possible errors knowing the origin was an excel file:
+
+- The year:
+```{r, eval=FALSE}
+table(allFragility$Year)
+```
+
+The numeric format tells us the representation of a date:
+
+```{r, eval=FALSE}
+as.Date(38718, origin="1899-12-30")
+```
+
+This looks like an easy fix, just verify we have integers:
+
+```{r, eval=FALSE}
+str(allFragility$Year)
+```
+
+Then,
+```{r, eval=FALSE}
+allFragility$Year=as.numeric(allFragility$Year)
+```
+
+We have two years well written, then:
+
+```{r, eval=FALSE}
+# temproral Column:
+allFragility$Year2=format(as.Date(allFragility$Year,
+                                  origin="1899-12-30"),
+                          "%Y") # I will just recover the year.
+
+# improved column
+allFragility$Year=ifelse(allFragility$Year%in%c(2021,2023),
+                         allFragility$Year,
+                         allFragility$Year2)
+
+# deleting temporal
+allFragility$Year2=NULL
+```
+
+- The numeric columns as numeric:
+
+```{r, eval=FALSE}
+allFragility[,4:16]=lapply(allFragility[4:16],as.numeric)
+```
+
+Verifying:
+
+```{r, eval=FALSE}
+str(allFragility)
+```
+
+
+We can save this now.
+
+```{r, eval=FALSE}
+write.csv(allFragility,'allFragility.csv',row.names = F)
+```
+
+
+

@@ -1,0 +1,164 @@
+---
+title: An R Markdown document converted from "aggregating_R.ipynb"
+output: html_document
+---
+
+Let's bring some data of COVID from Brazil:
+
+```{r}
+linkCovid1='https://github.com/DACSS-PreProcessing/DFaggregating/raw/refs/heads/main/datafiles/HIST_PAINEL_COVIDBR_2022_Parte1_20jul2022.csv'
+linkCovid2='https://github.com/DACSS-PreProcessing/DFaggregating/raw/refs/heads/main/datafiles/HIST_PAINEL_COVIDBR_2022_Parte2_20jul2022.csv'
+dataCovid1=read.csv(linkCovid1,sep = ';')
+dataCovid2=read.csv(linkCovid2,sep = ';')
+```
+
+Let's concatenate both data frames:
+
+```{r}
+dataCovid=do.call(rbind,list(dataCovid1, dataCovid2))
+```
+
+```{r}
+dataCovid$data=strptime(dataCovid$data, "%Y-%m-%d")
+dataCovid$day=format(dataCovid$data,"%d")
+dataCovid$year=format(dataCovid$data,"%Y")
+dataCovid$month=format(dataCovid$data,"%m")
+head(dataCovid)
+```
+
+```{r}
+saveRDS(dataCovid,"BrasilCovid.rds")
+```
+
+Now, check the data available:
+
+```{r}
+str(dataCovid)
+```
+
+Let's keep complete data by "ESTADO":
+
+```{r}
+dataCovid=dataCovid[dataCovid$estado!="",]
+```
+
+Let's keep some columns:
+
+```{r}
+
+toSelect=c('regiao', 'estado', 'municipio','data', 'semanaEpi','casosNovos', 'obitosNovos')
+covid=dataCovid[,toSelect]
+
+head(covid)
+```
+
+Let's format the dates, and get date details:
+
+```{r}
+covid$data=strptime(covid$data, "%Y-%m-%d")
+covid$day=format(covid$data,"%d")
+covid$year=format(covid$data,"%Y")
+covid$month=format(covid$data,"%m")
+head(covid)
+```
+
+Let's find out about years available:
+
+```{r}
+unique(covid$year)
+```
+
+```{r}
+unique(covid$month)
+```
+
+So, we have data from January to July 2022.
+Let's find out: **count of new positive cases per month**:
+
+```{r}
+sum(covid$casosNovos[covid$month=='07'])
+```
+
+```{r}
+sum(covid$casosNovos[covid$month=='06'])
+```
+
+```{r}
+sum(covid$casosNovos[covid$month=='05'])
+```
+
+...
+
+```{r}
+sum(covid$casosNovos[covid$month=='01'])
+```
+
+We use **aggregation** to simplify the previous steps:
+
+```{r}
+# sum of cases by month
+casesSumByMonth=aggregate(data=covid,casosNovos~month,sum)
+casesSumByMonth
+```
+
+**AGGREGATING** capabilities allow us to produce useful output with few code:
+
+* **The groupings**:
+
+In the last example, _month_ was the **grouping** variable. We can have more the one of those:
+
+```{r}
+# sum of cases by estado and week
+casesSumByStateAndMonth=aggregate(data=covid,casosNovos~estado + month,sum)
+casesSumByStateAndMonth
+```
+
+* **The function to apply**:
+
+We can have more than one function:
+
+```{r}
+# sum and mean of cases by estado and week
+casesSumAndMeanByStateAndWeek=aggregate(data=covid,casosNovos~estado + semanaEpi,
+          function(x) c(mean = mean(x), sum = sum(x) ) )
+
+
+head(casesSumAndMeanByStateAndWeek,30)
+```
+
+...or better:
+
+```{r}
+casesSumAndMeanByStateAndWeek=do.call(data.frame, aggregate(data=covid,casosNovos~estado + semanaEpi,
+function(x) c(mean = mean(x), sum = sum(x) ) ))
+head(casesSumAndMeanByStateAndWeek,30)
+```
+
+* **The variables transformed**:
+
+We can apply the function to more than one variable:
+
+```{r}
+# sum of cases and deaths by estado
+
+CasesAndDeathsByState=aggregate(data=covid,
+                                cbind(casosNovos,obitosNovos)~estado,
+                                sum)
+
+head(CasesAndDeathsByState,30)
+```
+
+* Function **according** to variable
+
+The function can vary according to variable.  In this case, using **dplyr** is needed:
+
+```{r}
+library(dplyr)
+covid |>
+  group_by(month) |>
+  summarize(casosNovos_VAR = var(casosNovos),
+            casosNovos_SD = sd(casosNovos),
+            obitosNovos_Median = median(obitosNovos),
+            obitosNovos_Mean = mean(obitosNovos))
+```
+
