@@ -14,6 +14,7 @@ Profesor:[Dr. José Manuel MAGALLANES REYES, Ph.D](http://www.pucp.edu.pe/profes
 ------------------------------------------------------------------------
 
 ```{r klippy, echo=FALSE, include=TRUE}
+library(magrittr)
 klippy::klippy(position = c('top', 'right'))
 ```
 
@@ -101,7 +102,8 @@ theFun=sum
 casesSumByStateAndMonth=aggregate(data=covid,
                                   theModel,
                                   theFun)
-casesSumByStateAndMonth
+# see some
+casesSumByStateAndMonth%>%head(30)
 ```
 
 -   **The function to apply**:
@@ -117,7 +119,8 @@ casesSumAndMeanByStateAndWeek=aggregate(data=covid,
                                         theFun)
 
 # sometimes you can not see this (when in RStudio)
-head(casesSumAndMeanByStateAndWeek,30)
+# see some
+casesSumAndMeanByStateAndWeek%>%head(30)
 ```
 
 If you do not see the above result, turn the aggregation explicitly into a dataframe:
@@ -127,7 +130,8 @@ casesSumAndMeanByStateAndWeek=do.call(data.frame,
                                       aggregate(data=covid,
                                                 theModel,
                                                 theFun))
-head(casesSumAndMeanByStateAndWeek,30)
+# see some
+casesSumAndMeanByStateAndWeek%>%head(30)
 ```
 
 -   **The variables transformed**:
@@ -142,7 +146,8 @@ CasesAndDeathsByState=aggregate(data=covid,
                                 theModel,
                                 theFun)
 
-head(CasesAndDeathsByState,30)
+# see some
+CasesAndDeathsByState%>%head(30)
 ```
 
 -   Function **according** to variable
@@ -401,7 +406,7 @@ And you also have WIDE:
 head(fragile[fragile$Year==2023,c('Country','c1_security_apparatus',	'c2_factionalized_elites',	'c3_group_grievance')])
 ```
 
-## From Long to Wide
+### From Long to Wide
 
 ```{r}
 fragileWide=tidyr::pivot_wider(fragile[,c('Country','Year','Total')],
@@ -431,7 +436,7 @@ base+geom_boxplot(aes(x=as.ordered(2006),y=`2006`)) +
      geom_boxplot(aes(x=as.ordered(2015),y=`2015`)) + labs(y='')
 ```
 
-## From Wide to Long
+### From Wide to Long
 
 We have  **pivot_longer** :
 
@@ -463,7 +468,8 @@ CVars_columns=c('c1_security_apparatus',	'c2_factionalized_elites',	'c3_group_gr
 #only one year
 fragile_CVars_wide=fragile[fragile$Year==2020,c('Country',CVars_columns)]
 
-fragile_CVars_wide
+# see some
+fragile_CVars_wide%>%head(30)
 ```
 
 ```{r}
@@ -480,13 +486,15 @@ base=ggplot(data=fragile_CVars_long)
 base+geom_boxplot(aes(x=CVars_name,y=CVars_value))
 ```
 
-## LONG and WIDE madness
+### LONG and WIDE madness
 
 Let me keep both long and wide elements:
 
 ```{r}
 fragile_since2020=fragile[fragile$Year>=2020,c('Country','Year',CVars_columns)]
-fragile_since2020
+
+# see some
+fragile_since2020%>%head(30)
 ```
 
 See this result when sending a long column into a wide format when other variables are already wide:
@@ -508,3 +516,166 @@ fragile_since2020_long=tidyr::pivot_longer(fragile_since2020,
 fragile_since2020_long
 ```
 
+## Merging
+
+Let me bring two data sets. This is their location:
+
+```{r}
+demoIndex="https://docs.google.com/spreadsheets/d/e/2PACX-1vQWJnw11Xd2TvEd0p6_6d2NhtG29T9D_85ooNB4yddfIVH_LBaqiYroAD3sZzD1wvOxBPpj68gPcPsi/pub?gid=0&single=true&output=csv"
+debtIndex="https://docs.google.com/spreadsheets/d/e/2PACX-1vQWJnw11Xd2TvEd0p6_6d2NhtG29T9D_85ooNB4yddfIVH_LBaqiYroAD3sZzD1wvOxBPpj68gPcPsi/pub?gid=1301926611&single=true&output=csv"
+```
+
+Opening the data frames:
+
+```{r}
+demo=read.csv(demoIndex)
+debt=read.csv(debtIndex)
+```
+
+The contents of democracy related variables:
+```{r}
+str(demo)
+```
+
+The contents of public debt:
+```{r}
+str(debt)
+```
+If we are to merge both tables, we do this:
+
+```{r}
+# by.x='name', by.y='name' are NOT NEEDED
+merge(demo,debt, by.x='name', by.y='name')
+```
+
+
+As you see, merge is done, but at the expense of losing countries.
+
+The goal here is to lose less rows. Let's find out what was not matched in each case:
+
+```{r}
+onlyInDemo=sort(setdiff(demo$name,debt$name))
+onlyInDemo
+```
+
+```{r}
+onlyInDebt=sort(setdiff(debt$name,demo$name))
+onlyInDebt
+```
+
+Let's install **stringdist**:
+
+```{r}
+# install.packages("stringdist")
+```
+
+This is a first try:
+
+```{r}
+TheMatch<-character()
+mindist<-integer()
+sortedmatches<-character()
+
+for (i in 1:length(onlyInDemo) ) {
+  allDistances<-stringdist::stringdist(onlyInDemo[i],onlyInDebt,method = 'jw')
+  mindist[i]=min(allDistances)
+  TheMatch[i]<-onlyInDebt[which.min(allDistances)]
+}
+fuzzyOutput=data.frame(input=onlyInDemo,possible_match=TheMatch,divergence=mindist,  stringsAsFactors = F)
+
+fuzzyOutput[order(-fuzzyOutput$divergence),]
+```
+
+We can keep matches above some threshold:
+```{r}
+best_fuzzy_1=fuzzyOutput[fuzzyOutput$divergence<=0.23,]
+best_fuzzy_1
+```
+Here we update with the matches:
+
+```{r}
+demo$name[match(best_fuzzy_1$input, demo$name)] = best_fuzzy_1$possible_match
+```
+
+And redo previous steps:
+```{r}
+onlyInDemo=sort(setdiff(demo$name,debt$name))
+onlyInDebt=sort(setdiff(debt$name,demo$name))
+
+TheMatch<-character()
+mindist<-integer()
+sortedmatches<-character()
+
+for (i in 1:length(onlyInDemo) ) {
+  allDistances<-stringdist::stringdist(onlyInDemo[i],onlyInDebt,method = 'jw')
+  mindist[i]=min(allDistances)
+  TheMatch[i]<-onlyInDebt[which.min(allDistances)]
+}
+fuzzyOutput=data.frame(input=onlyInDemo,possible_match=TheMatch,divergence=mindist,  stringsAsFactors = F)
+
+fuzzyOutput[order(-fuzzyOutput$divergence),]
+```
+
+We can choose some rows:
+```{r}
+best_fuzzy_2=fuzzyOutput[c(4,3,9,1,2),]
+best_fuzzy_2
+```
+
+And then update and retry:
+```{r}
+demo$name[match(best_fuzzy_2$input, demo$name)] = best_fuzzy_2$possible_match
+
+onlyInDemo=sort(setdiff(demo$name,debt$name))
+onlyInDebt=sort(setdiff(debt$name,demo$name))
+
+TheMatch<-character()
+mindist<-integer()
+sortedmatches<-character()
+
+for (i in 1:length(onlyInDemo) ) {
+  allDistances<-stringdist::stringdist(onlyInDemo[i],onlyInDebt,method = 'jw')
+  mindist[i]=min(allDistances)
+  TheMatch[i]<-onlyInDebt[which.min(allDistances)]
+}
+fuzzyOutput=data.frame(input=onlyInDemo,possible_match=TheMatch,divergence=mindist,  stringsAsFactors = F)
+
+fuzzyOutput[order(-fuzzyOutput$divergence),]
+```
+
+The algorithm can be changed:
+```{r}
+TheMatch<-character()
+mindist<-integer()
+sortedmatches<-character()
+
+for (i in 1:length(onlyInDemo) ) {
+  allDistances<-stringdist::stringdist(onlyInDemo[i],onlyInDebt,method = 'cosine')
+  mindist[i]=min(allDistances)
+  TheMatch[i]<-onlyInDebt[which.min(allDistances)]
+}
+fuzzyOutput=data.frame(input=onlyInDemo,possible_match=TheMatch,divergence=mindist,  stringsAsFactors = F)
+
+fuzzyOutput[order(-fuzzyOutput$divergence),]
+```
+
+So, we recovered more:
+```{r}
+best_fuzzy_3=fuzzyOutput[c(1,5),]
+best_fuzzy_3
+```
+We could add some manually:
+```{r}
+best_fuzzy_3=rbind(best_fuzzy_3,c('Swaziland','Eswatini',NA))
+best_fuzzy_3
+```
+Then update:
+```{r}
+demo$name[match(best_fuzzy_3$input, demo$name)] = best_fuzzy_3$possible_match
+```
+
+We should stop here, and get the best posible merge:
+```{r}
+demodebt=merge(demo,debt, by.x='name', by.y='name')
+str(demodebt)
+```
