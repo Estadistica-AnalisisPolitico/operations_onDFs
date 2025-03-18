@@ -11,13 +11,17 @@ Profesor:[Dr. José Manuel MAGALLANES REYES, Ph.D](http://www.pucp.edu.pe/profes
 -   Telefono: (51) 1 - 6262000 anexo 4302
 -   Correo Electrónico: [jmagallanes\@pucp.edu.pe](mailto:jmagallanes@pucp.edu.pe)
 
-_____________
+------------------------------------------------------------------------
+
+```{r klippy, echo=FALSE, include=TRUE}
+klippy::klippy(position = c('top', 'right'))
+```
 
 # Operations on Data Frames
 
 ## Aggregation
 
-Let's bring some data of COVID from Brazil:
+Let's bring some data of COVID from [Brazil](https://infoms.saude.gov.br/extensions/covid-19_html/covid-19_html.html):
 
 ```{r}
 rm(list = ls())
@@ -157,11 +161,13 @@ covid |>
 ```
 
 
+------------------------------------------------------------------------
+
 ## Concatenation
 
 As the name implies, it is the process to unite dataframes. 
 
-For this example, there is a webpage in **fragilestatesindex.org** where we can find several links to excel files. Let me get all the links:
+For this example, there is a webpage in **[fragilestatesindex.org](https://fragilestatesindex.org/excel/)** where we can find several links to excel files. Let me get all the links:
 
 ```{r, eval=TRUE}
 library(rvest) 
@@ -330,6 +336,8 @@ We have concatenated, cleaned and formatted successfully
 ```{r, eval=TRUE}
 saveRDS(allFragility,'allFragility.rds')
 ```
+
+------------------------------------------------------------------------
 
 
 ## Reshaping
