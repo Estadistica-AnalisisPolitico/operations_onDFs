@@ -1,0 +1,153 @@
+---
+title: An R Markdown document converted from "Fuzzy_R.ipynb"
+output: html_document
+---
+
+```{r}
+demoIndex="https://docs.google.com/spreadsheets/d/e/2PACX-1vQWJnw11Xd2TvEd0p6_6d2NhtG29T9D_85ooNB4yddfIVH_LBaqiYroAD3sZzD1wvOxBPpj68gPcPsi/pub?gid=0&single=true&output=csv"
+debtIndex="https://docs.google.com/spreadsheets/d/e/2PACX-1vQWJnw11Xd2TvEd0p6_6d2NhtG29T9D_85ooNB4yddfIVH_LBaqiYroAD3sZzD1wvOxBPpj68gPcPsi/pub?gid=1301926611&single=true&output=csv"
+```
+
+Opening the data frames:
+
+```{r}
+demo=read.csv(demoIndex)
+debt=read.csv(debtIndex)
+```
+
+```{r}
+str(demo)
+```
+
+```{r}
+str(debt)
+```
+
+We can not create a non-missing data merged dataframe with more rows than the smaller data frame, which is the Democracy Index data.
+
+```{r}
+str(merge(demo,debt, by.x='name', by.y='name'))
+```
+
+Can we recover some rows in the **inner** merge?
+
+Let's find out what was not matched in each case:
+
+```{r}
+onlyInDemo=sort(setdiff(demo$name,debt$name))
+onlyInDemo
+```
+
+```{r}
+onlyInDebt=sort(setdiff(debt$name,demo$name))
+onlyInDebt
+```
+
+Let's install **stringdist**:
+
+```{r}
+# install.packages("stringdist")
+```
+
+```{r}
+stringdist::stringdist(onlyInDemo[1],onlyInDebt,method = 'jaccard')
+```
+
+```{r}
+TheMatch<-character()
+mindist<-integer()
+sortedmatches<-character()
+
+for (i in 1:length(onlyInDemo) ) {
+  allDistances<-stringdist::stringdist(onlyInDemo[i],onlyInDebt,method = 'jw')
+  mindist[i]=min(allDistances)
+  TheMatch[i]<-onlyInDebt[which.min(allDistances)]
+}
+fuzzyOutput=data.frame(input=onlyInDemo,possible_match=TheMatch,divergence=mindist,  stringsAsFactors = F)
+
+fuzzyOutput[order(-fuzzyOutput$divergence),]
+```
+
+```{r}
+best_fuzzy_1=fuzzyOutput[fuzzyOutput$divergence<=0.23,]
+best_fuzzy_1
+```
+
+```{r}
+demo$name[match(best_fuzzy_1$input, demo$name)] = best_fuzzy_1$possible_match
+
+onlyInDemo=sort(setdiff(demo$name,debt$name))
+onlyInDebt=sort(setdiff(debt$name,demo$name))
+
+TheMatch<-character()
+mindist<-integer()
+sortedmatches<-character()
+
+for (i in 1:length(onlyInDemo) ) {
+  allDistances<-stringdist::stringdist(onlyInDemo[i],onlyInDebt,method = 'jw')
+  mindist[i]=min(allDistances)
+  TheMatch[i]<-onlyInDebt[which.min(allDistances)]
+}
+fuzzyOutput=data.frame(input=onlyInDemo,possible_match=TheMatch,divergence=mindist,  stringsAsFactors = F)
+
+fuzzyOutput[order(-fuzzyOutput$divergence),]
+```
+
+```{r}
+best_fuzzy_2=fuzzyOutput[c(4,3,9,1,2),]
+best_fuzzy_2
+```
+
+```{r}
+demo$name[match(best_fuzzy_2$input, demo$name)] = best_fuzzy_2$possible_match
+
+onlyInDemo=sort(setdiff(demo$name,debt$name))
+onlyInDebt=sort(setdiff(debt$name,demo$name))
+
+TheMatch<-character()
+mindist<-integer()
+sortedmatches<-character()
+
+for (i in 1:length(onlyInDemo) ) {
+  allDistances<-stringdist::stringdist(onlyInDemo[i],onlyInDebt,method = 'jw')
+  mindist[i]=min(allDistances)
+  TheMatch[i]<-onlyInDebt[which.min(allDistances)]
+}
+fuzzyOutput=data.frame(input=onlyInDemo,possible_match=TheMatch,divergence=mindist,  stringsAsFactors = F)
+
+fuzzyOutput[order(-fuzzyOutput$divergence),]
+```
+
+```{r}
+TheMatch<-character()
+mindist<-integer()
+sortedmatches<-character()
+
+for (i in 1:length(onlyInDemo) ) {
+  allDistances<-stringdist::stringdist(onlyInDemo[i],onlyInDebt,method = 'cosine')
+  mindist[i]=min(allDistances)
+  TheMatch[i]<-onlyInDebt[which.min(allDistances)]
+}
+fuzzyOutput=data.frame(input=onlyInDemo,possible_match=TheMatch,divergence=mindist,  stringsAsFactors = F)
+
+fuzzyOutput[order(-fuzzyOutput$divergence),]
+```
+
+```{r}
+best_fuzzy_3=fuzzyOutput[c(1,5),]
+best_fuzzy_3
+```
+
+```{r}
+best_fuzzy_3=rbind(best_fuzzy_3,c('Swaziland','Eswatini',NA))
+best_fuzzy_3
+```
+
+```{r}
+demo$name[match(best_fuzzy_3$input, demo$name)] = best_fuzzy_3$possible_match
+```
+
+```{r}
+str(merge(demo,debt, by.x='name', by.y='name'))
+```
+
